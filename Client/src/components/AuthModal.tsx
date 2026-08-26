@@ -46,7 +46,6 @@ export default function AuthModal() {
         if (success) {
             handleClose();
         }
-        // On failure the reason is in `authError` and rendered below the tabs.
     };
 
     return (
@@ -91,14 +90,6 @@ export default function AuthModal() {
 
                 {/* Form Content */}
                 <form onSubmit={handleSubmit} className="p-8 space-y-6 flex-1 flex flex-col justify-between">
-                    {authError && (
-                        <p
-                            role="alert"
-                            className="text-xs text-error bg-error-container/60 border border-error/30 rounded px-3 py-2 leading-relaxed"
-                        >
-                            {authError}
-                        </p>
-                    )}
                     <div>
                         <div className="text-center mb-8">
                             <h2 className="font-display text-2xl font-medium text-primary tracking-tight">Welcome to QuickDine</h2>
@@ -106,6 +97,13 @@ export default function AuthModal() {
                                 Access your exclusive reservations and curated dining profile.
                             </p>
                         </div>
+
+                        {/* Server-side failures: wrong password, duplicate email, API down. */}
+                        {authError && (
+                            <div className="mb-5 border border-error/30 bg-error-container/30 px-4 py-3 rounded-sm">
+                                <p className="text-xs text-error leading-relaxed">{authError}</p>
+                            </div>
+                        )}
 
                         <div className="space-y-5">
                             {/* Name Field (Register Only) */}

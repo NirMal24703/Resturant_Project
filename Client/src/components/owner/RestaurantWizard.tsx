@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import { Utensils, Upload, Image } from "lucide-react";
 import toast from "react-hot-toast";
-import { dummyRestaurant } from "../../assets/assets.ts";
+import { createMyRestaurant, type Restaurant } from "../../api.ts";
 
 interface RestaurantWizardProps {
-    setRestaurant: (restaurant: any) => void;
+    setRestaurant: (restaurant: Restaurant) => void;
 }
 
 export default function RestaurantWizard({ setRestaurant }: RestaurantWizardProps) {
@@ -68,8 +67,14 @@ export default function RestaurantWizard({ setRestaurant }: RestaurantWizardProp
 
     const handleCreateRestaurant = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (availableSlots.length === 0) {
+            toast.error("Please select at least one dining slot.");
+            return;
+        }
+
         setFormLoading(true);
         try {
+            // Sent as multipart rather than JSON because of the cover image.
             const formData = new FormData();
             formData.append("name", name);
             formData.append("description", description);
@@ -85,10 +90,11 @@ export default function RestaurantWizard({ setRestaurant }: RestaurantWizardProp
                 formData.append("image", imageFile);
             }
 
-            setRestaurant(dummyRestaurant[0]);
+            const created = await createMyRestaurant(formData);
+            setRestaurant(created);
             toast.success("Restaurant profile submitted successfully! Awaiting Admin approval.");
-        } catch (error: any) {
-            toast.error(error?.response?.data?.message || "Failed to register restaurant");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to register restaurant");
         } finally {
             setFormLoading(false);
         }

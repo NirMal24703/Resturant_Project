@@ -1,4 +1,4 @@
-"""Password hashing and JWT issuing/verifying."""
+"""Password hashing, JWT issuing/verifying, and the role guards."""
 
 import hashlib
 import hmac
@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 from database import get_session
 from models import User
 
-# In production set JWT_SECRET as a real environment variable. The random
+# Set JWT_SECRET as a real environment variable in production. The random
 # fallback means tokens simply stop working after a restart, which is safe.
 SECRET_KEY = os.getenv("JWT_SECRET", secrets.token_hex(32))
 ALGORITHM = "HS256"
@@ -28,6 +28,7 @@ bearer = HTTPBearer(auto_error=False)
 # ── Passwords ───────────────────────────────────────────────────────────────
 # PBKDF2-HMAC-SHA256 from the standard library: no native build step, so it
 # installs cleanly on Windows without a compiler.
+
 
 def hash_password(password: str) -> str:
     salt = secrets.token_hex(16)
@@ -49,6 +50,7 @@ def verify_password(password: str, stored: str) -> bool:
 
 # ── Tokens ──────────────────────────────────────────────────────────────────
 
+
 def create_token(user_id: int) -> str:
     payload = {
         "sub": str(user_id),
@@ -62,7 +64,7 @@ def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer),
     session: Session = Depends(get_session),
 ) -> User:
-    """Resolves the Authorization: Bearer <token> header into a User row."""
+    """Resolves the `Authorization: Bearer <token>` header into a User row."""
     invalid = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Not signed in, or the session has expired.",
@@ -81,6 +83,44 @@ def get_current_user(
     if user is None:
         raise invalid
     return user
+
+
+def get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer),
+    session: Session = Depends(get_session),
+) -> Optional[User]:
+    """Like get_current_user, but public routes stay readable when signed out."""
+    if credentials is None:
+        return None
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        return session.get(User, int(payload["sub"]))
+    except (jwt.PyJWTError, KeyError, ValueError):
+        return None
+
+
+# ── Role guards ─────────────────────────────────────────────────────────────
+
+
+def require_roles(*roles: str):
+    """Dependency factory: require_roles("owner") locks a route to owners.
+
+    Admins pass every check, so they can inspect owner-facing routes too.
+    """
+
+    def guard(current: User = Depends(get_current_user)) -> User:
+        if current.role not in roles and current.role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your account doesn't have access to this area.",
+            )
+        return current
+
+    return guard
+
+
+require_owner = require_roles("owner")
+require_admin = require_roles("admin")
 
 
 def get_user_by_email(session: Session, email: str) -> Optional[User]:

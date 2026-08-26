@@ -1,12 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { Upload, Image } from "lucide-react";
-import { dummyRestaurant } from "../../assets/assets.ts";
+import { updateMyRestaurant, type Restaurant } from "../../api.ts";
 
 interface OwnerProfileDetailsProps {
-    restaurant: any;
-    setRestaurant: (restaurant: any) => void;
+    restaurant: Restaurant;
+    setRestaurant: (restaurant: Restaurant) => void;
 }
 
 export default function OwnerProfileDetails({ restaurant, setRestaurant }: OwnerProfileDetailsProps) {
@@ -77,6 +76,11 @@ export default function OwnerProfileDetails({ restaurant, setRestaurant }: Owner
 
     const handleUpdateRestaurant = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (availableSlots.length === 0) {
+            toast.error("Please select at least one dining slot.");
+            return;
+        }
+
         setFormLoading(true);
         try {
             const formData = new FormData();
@@ -93,10 +97,11 @@ export default function OwnerProfileDetails({ restaurant, setRestaurant }: Owner
             if (imageFile) {
                 formData.append("image", imageFile);
             }
-            setRestaurant(dummyRestaurant[0]);
+            const updated = await updateMyRestaurant(formData);
+            setRestaurant(updated);
             toast.success("Profile details updated successfully!");
-        } catch (error: any) {
-            toast.error(error?.response?.data?.message || "Update failed");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Update failed");
         } finally {
             setFormLoading(false);
         }

@@ -1,11 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
-import {
-    useParams,
-    useSearchParams,
-    useNavigate,
-    Link,
-} from "react-router-dom";
+import { useParams, useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useAppContext } from "../context/AppContext.tsx";
 import Navbar from "../components/Navbar.tsx";
 import Footer from "../components/Footer.tsx";
@@ -15,8 +9,7 @@ import Loader from "../components/Loader.tsx";
 import BookingSuccess from "../components/booking/BookingSuccess.tsx";
 import BookingSummary from "../components/booking/BookingSummary.tsx";
 import BookingForm from "../components/booking/BookingForm.tsx";
-import { dummyRestaurant } from "../assets/assets.ts";
-import { createBooking } from "../api.ts";
+import { createBooking, getRestaurant, type Booking, type Restaurant } from "../api.ts";
 
 export default function BookingConfirmation() {
     const { slug } = useParams<{ slug: string }>();
@@ -24,10 +17,10 @@ export default function BookingConfirmation() {
     const { user } = useAppContext();
     const navigate = useNavigate();
 
-    const [restaurant, setRestaurant] = useState<any>(null);
+    const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [loading, setLoading] = useState(true);
     const [confirming, setConfirming] = useState(false);
-    const [confirmedBooking, setConfirmedBooking] = useState<any>(null);
+    const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
 
     // Form inputs
     const [name, setName] = useState(user?.name || "");
@@ -36,177 +29,119 @@ export default function BookingConfirmation() {
     const [occasion, setOccasion] = useState("");
     const [specialRequests, setSpecialRequests] = useState("");
 
-    // Query parameters
+    // From Query Params
     const slot = searchParams.get("slot") || "";
     const date = searchParams.get("date") || "";
     const guests = searchParams.get("guests") || "2";
 
-    // Prefill form when user details load
     useEffect(() => {
+        // Prefill form when user details load
         if (user) {
-            setName(user.name || "");
-            setEmail(user.email || "");
-
-            if (user.phone) {
-                setPhone(user.phone);
-            }
+            (() => {
+                setName(user.name);
+                setEmail(user.email);
+                if (user.phone) setPhone(user.phone);
+            })();
         }
     }, [user]);
 
-    // Load restaurant
     useEffect(() => {
-        const fetchRestaurant = async () => {
-            setRestaurant(
-                dummyRestaurant.find((r) => r.slug === slug)
-            );
+        if (!slug) return;
+        let cancelled = false;
 
-            setLoading(false);
+        const fetchRestaurant = async () => {
+            try {
+                const found = await getRestaurant(slug);
+                if (!cancelled) setRestaurant(found);
+            } catch (error) {
+                if (!cancelled) {
+                    toast.error(error instanceof Error ? error.message : "Restaurant not found.");
+                    navigate("/search");
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
         };
 
-        if (slug) {
-            fetchRestaurant();
-        }
+        fetchRestaurant();
+        return () => {
+            cancelled = true;
+        };
     }, [slug, navigate]);
 
-    // Loading screen
     if (loading) {
         return <Loader text="Retrieving Dining Details..." />;
     }
 
-    // Restaurant not found
-    if (!restaurant) {
-        return null;
-    }
+    if (!restaurant) return null;
 
-    // ==============================
-    // CONFIRM BOOKING
-    // ==============================
-    const handleConfirmSubmit = async (
-        e: React.FormEvent
-    ) => {
+    const handleConfirmSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Validate reservation details
         if (!slot || !date) {
-            toast.error(
-                "Reservation details are missing. Return to restaurant details."
-            );
-            return;
-        }
-
-        // Validate name
-        if (!name.trim()) {
-            toast.error("Please enter your name.");
-            return;
-        }
-
-        // Validate email
-        if (!email.trim()) {
-            toast.error("Please enter your email.");
-            return;
-        }
-
-        // Validate phone
-        if (!phone.trim()) {
-            toast.error("Please enter your phone number.");
+            toast.error("Reservation details are missing. Return to restaurant details.");
             return;
         }
 
         try {
             setConfirming(true);
-
-            console.log("Sending booking to server...");
-
-            // Send booking to FastAPI
+            // The server re-checks capacity here, so a slot that filled up
+            // while this form was open comes back as a readable error.
             const booking = await createBooking({
-                name: name.trim(),
-                date: date,
+                restaurantId: restaurant._id,
+                date,
                 time: slot,
                 guests: Number(guests),
-                restaurant_slug: slug,
+                name,
+                email,
+                phone,
+                occasion,
+                specialRequests,
             });
-
-            console.log("Booking created:", booking);
-
-            // Store returned booking
             setConfirmedBooking(booking);
-
             toast.success("Reservation confirmed!");
-        } catch (error: any) {
-            console.error("Booking error:", error);
-
-            toast.error(
-                error?.message ||
-                    "Failed to create reservation. Please try again."
-            );
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Could not confirm your reservation.");
         } finally {
             setConfirming(false);
         }
     };
 
-    // ==============================
-    // SUCCESS SCREEN
-    // ==============================
+    // Render Success Screen
     if (confirmedBooking) {
         return (
             <div className="min-h-screen bg-surface flex flex-col pt-20">
                 <Navbar />
-
                 <main className="grow flex items-center justify-center py-12 px-6">
-                    <BookingSuccess
-                        confirmedBooking={confirmedBooking}
-                        restaurant={restaurant}
-                        date={date}
-                        slot={slot}
-                        guests={guests}
-                    />
+                    <BookingSuccess confirmedBooking={confirmedBooking} restaurant={restaurant} date={date} slot={slot} guests={guests} />
                 </main>
-
                 <Footer />
             </div>
         );
     }
 
-    // ==============================
-    // BOOKING FORM
-    // ==============================
     return (
         <div className="min-h-screen bg-surface flex flex-col pt-20">
             <Navbar />
 
+            {/* Main Booking Content */}
             <main className="grow max-w-7xl w-full mx-auto px-6 md:px-10 py-12">
-
                 {/* Progress bar header */}
                 <div className="flex items-center gap-2 mb-10 pb-4 border-b border-outline-variant/10 text-xs text-black/55">
-
-                    <Link
-                        to={`/restaurant/${restaurant.slug}`}
-                        className="hover:text-primary transition-colors"
-                    >
+                    <Link to={`/restaurant/${restaurant.slug}`} className="hover:text-primary transition-colors">
                         {restaurant.name}
                     </Link>
-
                     <ChevronRight size={14} />
-
-                    <span className="text-primary">
-                        Details & Confirmation
-                    </span>
+                    <span className="text-primary">Details & Confirmation</span>
                 </div>
 
-                {/* Booking content */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-
-                    {/* Left Column */}
+                    {/* Left Column (Reservation Summary) */}
                     <div className="lg:col-span-5">
-                        <BookingSummary
-                            restaurant={restaurant}
-                            date={date}
-                            slot={slot}
-                            guests={guests}
-                        />
+                        <BookingSummary restaurant={restaurant} date={date} slot={slot} guests={guests} />
                     </div>
 
-                    {/* Right Column */}
+                    {/* Right Column (Guest Details Form) */}
                     <div className="lg:col-span-7">
                         <BookingForm
                             name={name}

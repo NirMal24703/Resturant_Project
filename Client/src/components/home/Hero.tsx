@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, MapPin, Calendar, Users } from "lucide-react";
 import { assets } from "../../assets/assets";
+import AmbientBubbles from "../effects/AmbientBubbles.tsx";
 
 export default function Hero() {
     const navigate = useNavigate();
@@ -31,6 +32,9 @@ export default function Hero() {
                 <div className="absolute inset-0 bg-black/30"></div>
             </div>
 
+            {/* Gold bubbles drifting through the room */}
+            <AmbientBubbles className="qd-ambient qd-ambient--inset" count={18} />
+
             {/* Content */}
             <div className="relative z-10 w-full max-w-7xl px-6 md:px-10 text-center">
                 <span className="text-sm text-secondary-container tracking-[0.25em] uppercase block mb-4">
@@ -43,7 +47,7 @@ export default function Hero() {
                 {/* Search Bar Component */}
                 <form
                     onSubmit={handleSearchSubmit}
-                    className="bg-white p-3 md:p-2.5 ambient-shadow max-w-4xl mx-auto flex flex-col md:flex-row gap-2 "
+                    className="bg-white p-3 md:p-2.5 ambient-shadow rounded-2xl max-w-4xl mx-auto flex flex-col md:flex-row gap-2 transition-soft focus-within:shadow-[0_30px_70px_-20px_rgba(169,121,15,0.45)]"
                 >
                     {/* Search Term / Cuisine */}
                     <div className="flex-1 flex items-center border-b md:border-b-0 md:border-r border-outline-variant/30 px-4 py-3">
@@ -98,7 +102,7 @@ export default function Hero() {
 
                     <button
                         type="submit"
-                        className="bg-primary text-on-primary text-xs tracking-widest uppercase px-8 py-4 md:py-3 hover:bg-secondary hover:text-white transition-soft cursor-pointer"
+                        className="bg-primary text-on-primary text-xs tracking-widest uppercase px-8 py-4 md:py-3 rounded-xl hover:bg-secondary hover:text-white bubble-motion gold-sheen cursor-pointer"
                     >
                         FIND A TABLE
                     </button>

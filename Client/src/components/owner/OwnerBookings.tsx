@@ -1,21 +1,22 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import { Calendar, Users, Clock } from "lucide-react";
 import toast from "react-hot-toast";
+import { setOwnerBookingStatus, type Booking, type BookingStatus } from "../../api.ts";
 
 interface OwnerBookingsProps {
-    bookings: any[];
-    setBookings: React.Dispatch<React.SetStateAction<any[]>>;
+    bookings: Booking[];
+    setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
     totalSeats: number;
 }
 
 export default function OwnerBookings({ bookings, setBookings, totalSeats }: OwnerBookingsProps) {
-    const handleUpdateBookingStatus = async (bookingId: string, newStatus: string) => {
+    const handleUpdateBookingStatus = async (bookingId: string, newStatus: BookingStatus) => {
         try {
-            setBookings((prev) => prev.map((b) => (b._id === bookingId ? { ...b, status: newStatus } : b)));
+            const updated = await setOwnerBookingStatus(bookingId, newStatus);
+            setBookings((prev) => prev.map((b) => (b._id === bookingId ? updated : b)));
             toast.success(`Booking status updated to ${newStatus}`);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.message || "Update status failed");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Update status failed");
         }
     };
 

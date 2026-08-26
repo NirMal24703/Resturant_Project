@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Users, ShieldCheck, Utensils, Calendar } from "lucide-react";
+import type { AdminStats as AdminStatsType } from "../../api.ts";
 
 interface AdminStatsProps {
-    stats: any;
+    stats: AdminStatsType;
 }
 
 export default function AdminStats({ stats }: AdminStatsProps) {
@@ -50,7 +50,7 @@ export default function AdminStats({ stats }: AdminStatsProps) {
                             </thead>
 
                             <tbody className="divide-y divide-outline-variant/10">
-                                {stats.latestBookings.map((b: any) => (
+                                {stats.latestBookings.map((b) => (
                                     <tr key={b._id} className="hover:bg-surface/50">
                                         <td className="p-4 text-primary">{b.bookingId}</td>
 

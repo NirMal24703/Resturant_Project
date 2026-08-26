@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { useAppContext } from "../../context/AppContext.tsx";
 import Navbar from "../../components/Navbar.tsx";
@@ -10,23 +9,43 @@ import PendingApproval from "../../components/owner/PendingApproval.tsx";
 import RequestRejected from "../../components/owner/RequestRejected.tsx";
 import OwnerBookings from "../../components/owner/OwnerBookings.tsx";
 import OwnerProfileDetails from "../../components/owner/OwnerProfileDetails.tsx";
-import { dummyMyBookingsData, dummyRestaurant } from "../../assets/assets.ts";
+import { getMyRestaurant, getOwnerBookings, type Booking, type Restaurant } from "../../api.ts";
+import toast from "react-hot-toast";
 
 export default function OwnerDashboard() {
     const { logout } = useAppContext();
-    const [restaurant, setRestaurant] = useState<any>(null);
-    const [bookings, setBookings] = useState<any[]>([]);
+    const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+    const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<"bookings" | "details">("bookings");
 
-    const fetchOwnerData = async () => {
-        setRestaurant(dummyRestaurant[0]);
-        setBookings(dummyMyBookingsData);
-        setLoading(false);
-    };
-
     useEffect(() => {
-        (async () => await fetchOwnerData())();
+        let cancelled = false;
+
+        const fetchOwnerData = async () => {
+            try {
+                // Null here means this owner hasn't registered a venue yet,
+                // which is what puts the setup wizard on screen below.
+                const venue = await getMyRestaurant();
+                if (cancelled) return;
+                setRestaurant(venue);
+
+                // Only an approved venue has reservations worth loading.
+                if (venue && venue.status === "approved") {
+                    const reservations = await getOwnerBookings();
+                    if (!cancelled) setBookings(reservations);
+                }
+            } catch (error) {
+                if (!cancelled) toast.error(error instanceof Error ? error.message : "Could not load your dashboard.");
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+
+        fetchOwnerData();
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     if (loading) {

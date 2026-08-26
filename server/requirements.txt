@@ -5,3 +5,4 @@ SQLAlchemy==2.0.52
 pydantic==2.13.4
 pydantic[email]
 PyJWT==2.12.1
+python-multipart==0.0.20

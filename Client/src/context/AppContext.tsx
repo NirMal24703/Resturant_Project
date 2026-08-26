@@ -1,12 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import {
-    loginUser,
-    registerUser,
+    clearToken,
     getMe,
     getToken,
+    loginUser,
+    registerUser,
     setToken as persistToken,
-    clearToken,
+    updateProfile as updateProfileRequest,
     type ApiUser,
 } from "../api.ts";
 
@@ -20,6 +21,7 @@ interface AppContextType {
     setAuthModalOpen: (open: boolean) => void;
     login: (email: string, password: string) => Promise<boolean>;
     register: (name: string, email: string, password: string, phone?: string, role?: string) => Promise<boolean>;
+    updateProfile: (changes: { name?: string; phone?: string }) => Promise<boolean>;
     logout: () => void;
 }
 
@@ -98,6 +100,17 @@ export const AppContextProvider = ({ children }: Props) => {
         [],
     );
 
+    const updateProfile = useCallback(async (changes: { name?: string; phone?: string }): Promise<boolean> => {
+        setAuthError(null);
+        try {
+            setUser(await updateProfileRequest(changes));
+            return true;
+        } catch (error) {
+            setAuthError(error instanceof Error ? error.message : "Could not save your profile.");
+            return false;
+        }
+    }, []);
+
     const logout = useCallback(() => {
         clearToken();
         setTokenState(null);
@@ -115,6 +128,7 @@ export const AppContextProvider = ({ children }: Props) => {
         setAuthModalOpen,
         login,
         register,
+        updateProfile,
         logout,
     };
 

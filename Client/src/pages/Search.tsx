@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar.tsx";
@@ -6,11 +5,12 @@ import Footer from "../components/Footer.tsx";
 import RestaurantCard from "../components/RestaurantCard.tsx";
 import AuthModal from "../components/AuthModal.tsx";
 import { SlidersHorizontal, Search as SearchIcon, X, Check, MapPin, SearchXIcon } from "lucide-react";
-import { dummyRestaurant } from "../assets/assets.ts";
+import toast from "react-hot-toast";
+import { getRestaurants, type Restaurant } from "../api.ts";
 
 export default function Search() {
     const [searchParams, setSearchParams] = useSearchParams();
-    const [restaurants, setRestaurants] = useState<any[]>([]);
+    const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
     const [loading, setLoading] = useState(true);
 
     // UI Layout states
@@ -35,13 +35,36 @@ export default function Search() {
         })();
     }, [searchVal, locationVal]);
 
+    // Every filter lives in the URL, so one effect keyed on searchParams
+    // covers typing, cuisine/price toggles, sorting and back-button navigation.
     useEffect(() => {
+        let cancelled = false;
+
         const fetchRestaurants = async () => {
-            setRestaurants(dummyRestaurant);
-            setLoading(false);
+            setLoading(true);
+            try {
+                const results = await getRestaurants({
+                    search: searchParams.get("search") || undefined,
+                    location: searchParams.get("location") || undefined,
+                    cuisine: searchParams.getAll("cuisine"),
+                    priceRange: searchParams.getAll("priceRange"),
+                    sort: searchParams.get("sort") || undefined,
+                });
+                if (!cancelled) setRestaurants(results);
+            } catch (error) {
+                if (!cancelled) {
+                    setRestaurants([]);
+                    toast.error(error instanceof Error ? error.message : "Could not load restaurants.");
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
         };
 
         fetchRestaurants();
+        return () => {
+            cancelled = true;
+        };
     }, [searchParams]);
 
     const handleTextSubmit = (e: React.FormEvent) => {

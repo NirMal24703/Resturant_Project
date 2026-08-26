@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Star } from "lucide-react";
-import { dummyRating, dummyReviewCount } from "../../assets/assets.ts";
 
 interface RestaurantHeroProps {
     restaurant: any;
@@ -36,10 +35,10 @@ export default function RestaurantHero({ restaurant }: RestaurantHeroProps) {
                         <div className="flex items-center gap-4 text-white/90 text-xs">
                             <div className="flex items-center gap-1 text-secondary-container">
                                 <Star size={14} fill="currentColor" />
-                                <span className="font-medium text-white">{dummyRating.toFixed(1)}</span>
+                                <span className="font-medium text-white">{(restaurant.rating ?? 0).toFixed(1)}</span>
                             </div>
                             <span>•</span>
-                            <span>{dummyReviewCount} Reviews</span>
+                            <span>{restaurant.reviewCount ?? 0} Reviews</span>
                             <span>•</span>
                             <span>Price: {restaurant.priceRange}</span>
                         </div>

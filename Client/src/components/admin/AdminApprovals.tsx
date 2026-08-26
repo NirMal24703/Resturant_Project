@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Link } from "react-router-dom";
 import { CheckCircle, Utensils, MapPin, Users } from "lucide-react";
+import type { Restaurant } from "../../api.ts";
 
 interface AdminApprovalsProps {
-    pendingRestaurants: any[];
-    otherRestaurants: any[];
+    pendingRestaurants: Restaurant[];
+    otherRestaurants: Restaurant[];
     btnLoading: string | null;
     onApproveStatus: (restaurantId: string, status: "approved" | "rejected") => Promise<void>;
 }

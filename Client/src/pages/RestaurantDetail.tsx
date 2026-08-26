@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext.tsx";
@@ -11,41 +10,70 @@ import RestaurantHero from "../components/restaurant/RestaurantHero.tsx";
 import RestaurantInfo from "../components/restaurant/RestaurantInfo.tsx";
 import RestaurantReviews from "../components/restaurant/RestaurantReviews.tsx";
 import BookingWidget from "../components/restaurant/BookingWidget.tsx";
-import { dummyAvailability, dummyRestaurant } from "../assets/assets.ts";
+import { getAvailability, getRestaurant, type Restaurant, type SlotAvailability } from "../api.ts";
 
 export default function RestaurantDetail() {
     const { slug } = useParams<{ slug: string }>();
     const { isAuthenticated, setAuthModalOpen } = useAppContext();
     const navigate = useNavigate();
 
-    const [restaurant, setRestaurant] = useState<any>(null);
+    const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [loading, setLoading] = useState(true);
 
     // Booking Widget states
     const [selectedDate, setSelectedDate] = useState("");
     const [selectedGuests, setSelectedGuests] = useState("2");
     const [selectedSlot, setSelectedSlot] = useState("");
-    const [slotsAvailability, setSlotsAvailability] = useState<any[]>([]);
+    const [slotsAvailability, setSlotsAvailability] = useState<SlotAvailability[]>([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
 
     useEffect(() => {
+        if (!slug) return;
+        let cancelled = false;
+
         const fetchRestaurant = async () => {
-            setRestaurant(dummyRestaurant.find((r) => r.slug === slug));
-            setLoading(false);
+            try {
+                const found = await getRestaurant(slug);
+                if (!cancelled) setRestaurant(found);
+            } catch (error) {
+                if (!cancelled) {
+                    toast.error(error instanceof Error ? error.message : "Restaurant not found.");
+                    navigate("/search");
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
         };
 
-        if (slug) {
-            fetchRestaurant();
-        }
+        fetchRestaurant();
+        return () => {
+            cancelled = true;
+        };
     }, [slug, navigate]);
 
+    // Re-check remaining seats whenever the guest picks a different day, so a
+    // slot that filled up while they were browsing shows as full.
     useEffect(() => {
+        if (!restaurant) return;
+        let cancelled = false;
+
         const fetchAvailability = async () => {
-            setSlotsAvailability(dummyAvailability);
-            setLoadingSlots(false);
+            setLoadingSlots(true);
+            try {
+                const slots = await getAvailability(restaurant.slug, selectedDate || undefined);
+                if (!cancelled) setSlotsAvailability(slots);
+            } catch {
+                if (!cancelled) setSlotsAvailability([]);
+            } finally {
+                if (!cancelled) setLoadingSlots(false);
+            }
         };
+
         fetchAvailability();
-    }, [restaurant?._id, selectedDate]);
+        return () => {
+            cancelled = true;
+        };
+    }, [restaurant, selectedDate]);
 
     if (loading) {
         return <Loader text="Loading Restaurant Details..." />;
@@ -54,6 +82,11 @@ export default function RestaurantDetail() {
     if (!restaurant) return null;
 
     const handleReserveClick = () => {
+        if (!selectedDate) {
+            toast.error("Please choose a date for your reservation.");
+            return;
+        }
+
         if (!selectedSlot) {
             toast.error("Please select a dining time slot.");
             return;
@@ -82,7 +115,7 @@ export default function RestaurantDetail() {
                     {/* Left Column (Details, Menu, Reviews) */}
                     <div className="lg:col-span-8 space-y-12">
                         <RestaurantInfo restaurant={restaurant} />
-                        <RestaurantReviews />
+                        <RestaurantReviews slug={restaurant.slug} />
                     </div>
 
                     {/* Right Column (Sticky Reservation Widget) */}

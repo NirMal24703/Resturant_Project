@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAppContext } from "../context/AppContext.tsx";
@@ -8,59 +7,33 @@ import RestaurantCard from "../components/RestaurantCard.tsx";
 import AuthModal from "../components/AuthModal.tsx";
 import { CalendarIcon, UsersIcon, ClockIcon, MapPinIcon, CalendarDaysIcon } from "lucide-react";
 import toast from "react-hot-toast";
-import { dummyFeaturedRestaurants, dummyRestaurant } from "../assets/assets.ts";
-import { getBookings, cancelBooking } from "../api.ts";
+import { cancelBooking, getFeaturedRestaurants, getMyBookings, type Booking, type Restaurant } from "../api.ts";
 
 export default function Dashboard() {
     const { user } = useAppContext();
 
-    const [bookings, setBookings] = useState<any[]>([]);
-    const [recommendations, setRecommendations] = useState<any[]>([]);
+    const [bookings, setBookings] = useState<Booking[]>([]);
+    const [recommendations, setRecommendations] = useState<Restaurant[]>([]);
     const [loadingBookings, setLoadingBookings] = useState(true);
 
-    // Fetch this user's real bookings from the API. The API stores only the
-    // restaurant slug, so join it back to the catalogue for image/cuisine/address.
+    // Fetch this diner's reservations. The API scopes them to the bearer
+    // token, so no user id needs to be passed.
     useEffect(() => {
+        if (!user) return;
         let cancelled = false;
 
         const fetchBookings = async () => {
-            setLoadingBookings(true);
             try {
-                const rows = await getBookings();
-                if (cancelled) return;
-
-                setBookings(
-                    rows.map((row) => {
-                        const restaurant = dummyRestaurant.find((r) => r.slug === row.restaurant_slug);
-                        return {
-                            _id: String(row.id),
-                            date: row.date,
-                            time: row.time,
-                            guests: row.guests,
-                            status: row.status,
-                            bookingId: `QD-${String(row.id).padStart(6, "0")}`,
-                            restaurant: restaurant ?? {
-                                name: row.name,
-                                slug: row.restaurant_slug ?? "",
-                                cuisine: "",
-                                location: "",
-                                address: "",
-                                image: "/restaurant_1.png",
-                            },
-                        };
-                    }),
-                );
-            } catch (error: any) {
-                if (!cancelled) toast.error(error?.message ?? "Could not load your bookings.");
+                const mine = await getMyBookings();
+                if (!cancelled) setBookings(mine);
+            } catch (error) {
+                if (!cancelled) toast.error(error instanceof Error ? error.message : "Could not load your bookings.");
             } finally {
                 if (!cancelled) setLoadingBookings(false);
             }
         };
 
-        if (user) {
-            fetchBookings();
-        }
-
+        fetchBookings();
         return () => {
             cancelled = true;
         };
@@ -68,10 +41,21 @@ export default function Dashboard() {
 
     // Fetch generic recommendations
     useEffect(() => {
+        let cancelled = false;
+
         const fetchRecommendations = async () => {
-            setRecommendations(dummyFeaturedRestaurants);
+            try {
+                const featured = await getFeaturedRestaurants(3);
+                if (!cancelled) setRecommendations(featured);
+            } catch {
+                if (!cancelled) setRecommendations([]);
+            }
         };
+
         fetchRecommendations();
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     const handleCancelBooking = async (bookingId: string) => {
@@ -80,11 +64,13 @@ export default function Dashboard() {
         }
 
         try {
-            await cancelBooking(Number(bookingId));
-            setBookings((prev) => prev.map((b) => (b._id === bookingId ? { ...b, status: "cancelled" } : b)));
-            toast.success("Reservation cancelled.");
-        } catch (error: any) {
-            toast.error(error?.message ?? "Could not cancel that reservation.");
+            const updated = await cancelBooking(bookingId);
+            // Swap in the row the server returned rather than patching the
+            // status locally, so the list can't drift from the database.
+            setBookings((prev) => prev.map((b) => (b._id === bookingId ? updated : b)));
+            toast.success("Reservation cancelled successfully.");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Could not cancel that reservation.");
         }
     };
 

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import Navbar from "../../components/Navbar.tsx";
 import Footer from "../../components/Footer.tsx";
@@ -9,29 +8,52 @@ import { ShieldCheckIcon, CheckCircleIcon, BarChart3Icon } from "lucide-react";
 // Subcomponents
 import AdminApprovals from "../../components/admin/AdminApprovals.tsx";
 import AdminStats from "../../components/admin/AdminStats.tsx";
-import { dummyAdminStats, dummyRestaurant } from "../../assets/assets.ts";
+import toast from "react-hot-toast";
+import { getAdminStats, getAllRestaurants, setRestaurantStatus, type AdminStats as AdminStatsType, type Restaurant, type RestaurantStatus } from "../../api.ts";
 
 export default function AdminDashboard() {
     const { logout } = useAppContext();
-    const [restaurants, setRestaurants] = useState<any[]>([]);
-    const [stats, setStats] = useState<any>(null);
+    const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+    const [stats, setStats] = useState<AdminStatsType | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<"approvals" | "stats">("approvals");
     const [btnLoading, setBtnLoading] = useState<string | null>(null);
 
-    const fetchAdminData = async () => {
-        setRestaurants(dummyRestaurant);
-        setStats(dummyAdminStats);
-        setLoading(false);
-    };
-
-    const handleApproveStatus = async (restaurantId: string, status: "approved" | "rejected") => {
-        console.log(restaurantId, status);
-        setBtnLoading(null);
+    const handleApproveStatus = async (restaurantId: string, status: RestaurantStatus) => {
+        setBtnLoading(restaurantId);
+        try {
+            const updated = await setRestaurantStatus(restaurantId, status);
+            setRestaurants((prev) => prev.map((r) => (r._id === restaurantId ? updated : r)));
+            // Approving a venue changes the platform counts, so pull fresh stats.
+            setStats(await getAdminStats());
+            toast.success(`${updated.name} is now ${status}.`);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Could not update that listing.");
+        } finally {
+            setBtnLoading(null);
+        }
     };
 
     useEffect(() => {
-        (async () => await fetchAdminData())();
+        let cancelled = false;
+
+        const fetchAdminData = async () => {
+            try {
+                const [allVenues, platformStats] = await Promise.all([getAllRestaurants(), getAdminStats()]);
+                if (cancelled) return;
+                setRestaurants(allVenues);
+                setStats(platformStats);
+            } catch (error) {
+                if (!cancelled) toast.error(error instanceof Error ? error.message : "Could not load the admin console.");
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+
+        fetchAdminData();
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     if (loading) {

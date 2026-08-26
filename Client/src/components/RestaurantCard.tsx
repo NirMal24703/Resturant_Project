@@ -1,6 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Star, MapPinIcon } from "lucide-react";
-import { dummyRating } from "../assets/assets.ts";
 
 interface RestaurantCardProps {
     restaurant: {
@@ -31,7 +30,7 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
     };
 
     return (
-        <div className="group relative bg-white border border-outline-variant/10 card-hover-effect overflow-hidden rounded-md flex flex-col h-full">
+        <div className="group relative bg-white border border-outline-variant/10 card-hover-effect bubble-motion gold-sheen overflow-hidden rounded-md flex flex-col h-full">
             {/* Image & Badges */}
             <Link to={`/restaurant/${restaurant.slug}`} className="relative h-60 overflow-hidden block">
                 <img
@@ -68,7 +67,7 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
                             <span className="text-black/55/30 text-xs">•</span>
                             <div className="flex items-center gap-0.5 text-secondary">
                                 <Star size={12} fill="currentColor" />
-                                <span className="text-xs font-medium text-primary">{dummyRating.toFixed(1)}</span>
+                                <span className="text-xs font-medium text-primary">{(restaurant.rating ?? 0).toFixed(1)}</span>
                             </div>
                         </div>
                     </div>
