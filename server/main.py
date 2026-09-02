@@ -35,6 +35,9 @@ app = FastAPI(
 # treats localhost and 127.0.0.1 as different origins. Match all of them.
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=[
+        "https://quickodinos.netlify.app",
+    ],
     allow_origin_regex=r"http://(localhost|127\.0\.0\.1):(517\d|300\d|4173)",
     allow_credentials=True,
     allow_methods=["*"],
